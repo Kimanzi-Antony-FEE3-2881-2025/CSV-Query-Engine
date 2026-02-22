@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>CSV Query Engine</title>
+
+<!-- Main visual styling for the application -->
+<style>
+
+body{
+    font-family: Arial, sans-serif;   /* clean readable font */
+    background:#f5f7fa;               /* light background for comfort */
+    padding:30px;
+}
+
+/* Central container holding all UI elements */
+.container{
+    background:white;
+    padding:25px;
+    border-radius:12px;
+    max-width:1200px;
+    margin:auto;
+    box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+
+/* Project heading style */
+.title{
+    text-align:center;
+    margin-bottom:15px;
+}
+
+/* Short description section under title */
+.description-box{
+    width:100%;
+    max-width:1140px;
+    margin:0 auto 25px auto;
+    padding:15px 20px;
+    background:#f3f6f9;
+    border:1px solid #d0d7de;
+    border-radius:8px;
+    font-size:15px;
+    color:#333;
+    line-height:1.5;
+    text-align:center;
+}
+
+/* Layout for control panels */
+.controls{
+    display:flex;
+    gap:15px;
+    flex-wrap:wrap;
+    justify-content:space-between;
+}
+
+/* Individual feature boxes */
+.box{
+    border:1px solid #ddd;
+    padding:15px;
+    border-radius:8px;
+    width:220px;
+}
+
+/* Box titles */
+h3{
+    margin-top:0;
+    font-size:14px;
+}
+
+/* Button appearance */
+button{
+    background:#2196f3;
+    color:white;
+    border:none;
+    padding:6px 12px;
+    border-radius:4px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#1976d2;
+}
+
+/* Input fields */
+input, select{
+    width:100%;
+    margin:5px 0;
+    padding:5px;
+}
+
+/* Table layout */
+table{
+    border-collapse:collapse;
+    margin-top:25px;
+    width:100%;
+}
+
+/* Table cell styling */
+th, td{
+    border:1px solid #ccc;
+    padding:6px;
+    text-align:left;
+}
+
+/* Table header color */
+th{
+    background:#eee;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- Main app container -->
+<div class="container">
+
+<!-- Project title -->
+<h1 class="title">CSV QUERY ENGINE</h1>
+
+<!-- Short explanation of system purpose -->
+<div class="description-box">
+This application allows users to load CSV files and interact with the data through filtering, sorting, column selection, and exporting query results for analysis and reporting.
+</div>
+
+<!-- Control panel section -->
+<div class="controls">
+
+<!-- CSV loading area -->
+<div class="box">
+<h3>Choose CSV File To Load</h3>
+<input type="file" id="fileInput">
+<button onclick="viewAll()">View Complete File</button>
+</div>
+
+<!-- Filtering controls -->
+<div class="box">
+<h3>FILTER DATA BY CONDITIONS</h3>
+<select id="filterColumn"></select>
+<input type="number" id="minValue" placeholder="Minimum value">
+<input type="number" id="maxValue" placeholder="Maximum value">
+<button onclick="filterData()">Filter</button>
+</div>
+
+<!-- Sorting controls -->
+<div class="box">
+<h3>SORT BY COLUMNS</h3>
+<select id="sortColumn"></select>
+<select id="sortOrder">
+<option value="asc">Ascending</option>
+<option value="desc">Descending</option>
+</select>
+<button onclick="sortData()">Sort</button>
+</div>
+
+<!-- Column selection controls -->
+<div class="box">
+<h3>SELECT COLUMNS</h3>
+<select id="selectColumn"></select>
+<button onclick="showColumn()">Show Column</button>
+</div>
+
+<!-- Export controls -->
+<div class="box">
+<h3>EXPORT QUERY RESULTS</h3>
+<button onclick="exportAll()">Export All</button>
+<button onclick="exportCurrent()">Export Result</button>
+</div>
+
+</div>
+
+<!-- Table where CSV data appears -->
+<table id="table"></table>
+
+</div>
+<script>
+
+/* Stores column names */
+let headers = [];
+
+/* Holds full CSV data */
+let fullData = [];
+
+/* Holds current working result (after filter/sort) */
+let currentData = [];
+
+/* Detect CSV file selection */
+document.getElementById("fileInput").addEventListener("change", loadFile);
+
+/* Reads and processes selected CSV file */
+function loadFile(e){
+    const file = e.target.files[0];
+    const reader = new FileReader();
+
+    reader.onload = function(){
+        let lines = reader.result.trim().split("\n");
+
+        /* Extract column headers */
+        headers = lines[0].split(",");
+
+        /* Read remaining rows */
+        fullData = [];
+        for(let i=1;i<lines.length;i++){
+            fullData.push(lines[i].split(","));
+        }
+
+        /* Set current view to full data */
+        currentData = [...fullData];
+
+        fillDropdowns();
+        displayTable(headers, fullData);
+    };
+
+    reader.readAsText(file);
+}
+
+/* Fills dropdown menus using detected CSV columns */
+function fillDropdowns(){
+    ["filterColumn","sortColumn","selectColumn"].forEach(id=>{
+        let sel = document.getElementById(id);
+        sel.innerHTML="";
+
+        headers.forEach((h,i)=>{
+            let o = document.createElement("option");
+            o.value=i;
+            o.textContent=h;
+            sel.appendChild(o);
+        });
+    });
+}
+
+/* Displays data in table format */
+function displayTable(head,data){
+    let table = document.getElementById("table");
+    table.innerHTML="";
+
+    /* Create header row */
+    let tr = document.createElement("tr");
+    head.forEach(h=>{
+        let th = document.createElement("th");
+        th.textContent=h;
+        tr.appendChild(th);
+    });
+    table.appendChild(tr);
+
+    /* Insert data rows */
+    data.forEach(row=>{
+        let r = document.createElement("tr");
+        row.forEach(cell=>{
+            let td = document.createElement("td");
+            td.textContent=cell;
+            r.appendChild(td);
+        });
+        table.appendChild(r);
+    });
+}
+
+/* Shows complete dataset */
+function viewAll(){
+    currentData=[...fullData];
+    displayTable(headers, fullData);
+}
+
+/* Applies minimum and maximum numeric filtering */
+function filterData(){
+    let col = document.getElementById("filterColumn").value;
+    let min = document.getElementById("minValue").value;
+    let max = document.getElementById("maxValue").value;
+
+    let result = fullData.filter(r=>{
+        let v = parseFloat(r[col]);
+
+        if(isNaN(v)) return false;
+        if(min && v < min) return false;
+        if(max && v > max) return false;
+
+        return true;
+    });
+
+    currentData = result;
+
+    displayTable(
+        [headers[0], headers[col]],
+        result.map(r=>[r[0], r[col]])
+    );
+}
+
+/* Sorts current results by selected column */
+function sortData(){
+    let col = document.getElementById("sortColumn").value;
+    let order = document.getElementById("sortOrder").value;
+
+    let sorted = [...currentData].sort((a,b)=>{
+        let x = parseFloat(a[col]);
+        let y = parseFloat(b[col]);
+
+        if(isNaN(x) || isNaN(y)){
+            return order==="asc" 
+                ? a[col].localeCompare(b[col])
+                : b[col].localeCompare(a[col]);
+        }
+
+        return order==="asc" ? x - y : y - x;
+    });
+
+    currentData = sorted;
+
+    displayTable(
+        [headers[0], headers[col]],
+        sorted.map(r=>[r[0], r[col]])
+    );
+}
+
+/* Displays a single selected column */
+function showColumn(){
+    let col = document.getElementById("selectColumn").value;
+
+    displayTable(
+        [headers[col]],
+        currentData.map(r=>[r[col]])
+    );
+}
+
+/* Export full dataset */
+function exportAll(){
+    exportCSV(headers, fullData);
+}
+
+/* Export filtered/sorted results */
+function exportCurrent(){
+    exportCSV(headers, currentData);
+}
+
+/* Creates downloadable CSV file */
+function exportCSV(head,data){
+    let csv = head.join(",") + "\n";
+
+    data.forEach(r=>{
+        csv += r.join(",") + "\n";
+    });
+
+    let blob = new Blob([csv]);
+    let link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download="export.csv";
+    link.click();
+}
+
+</script>
+
+<style>
+
+/* Responsive layout for smaller screens */
+@media (max-width: 900px){
+    .controls{
+        justify-content:center;
+    }
+    .box{
+        width:90%;
+    }
+}
+
+/* Hover animation for control boxes */
+.box{
+    transition:transform 0.2s, box-shadow 0.2s;
+}
+
+.box:hover{
+    transform:translateY(-3px);
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Button interaction effect */
+button{
+    transition:background 0.2s, transform 0.1s;
+}
+
+button:active{
+    transform:scale(0.97);
+}
+
+/* Smooth description entry animation */
+.description-box{
+    animation:fadeIn 1s ease-in-out;
+}
+
+@keyframes fadeIn{
+    from{opacity:0; transform:translateY(10px);}
+    to{opacity:1; transform:translateY(0);}
+}
+
+/* Table appearance animation */
+table{
+    animation:fadeTable 0.6s ease;
+}
+
+@keyframes fadeTable{
+    from{opacity:0;}
+    to{opacity:1;}
+}
+
+/* Better input look */
+input, select{
+    border:1px solid #ccc;
+    border-radius:4px;
+}
+
+/* Horizontal scrolling for large datasets */
+#table{
+    display:block;
+    overflow-x:auto;
+}
+
+</style>
+
+<script>
+
+/* Displays small feedback messages for user actions */
+function flashMessage(msg){
+    let box = document.createElement("div");
+
+    box.style.position="fixed";
+    box.style.bottom="20px";
+    box.style.right="20px";
+    box.style.background="#2196f3";
+    box.style.color="white";
+    box.style.padding="10px 15px";
+    box.style.borderRadius="6px";
+    box.style.boxShadow="0 3px 8px rgba(0,0,0,.2)";
+    box.textContent=msg;
+
+    document.body.appendChild(box);
+
+    setTimeout(()=>box.remove(),1800);
+}
+
+/* Attach feedback to actions */
+
+const oldViewAll = viewAll;
+viewAll = function(){
+    oldViewAll();
+    flashMessage("Full file loaded");
+}
+
+const oldFilter = filterData;
+filterData = function(){
+    oldFilter();
+    flashMessage("Filter applied");
+}
+
+const oldSort = sortData;
+sortData = function(){
+    oldSort();
+    flashMessage("Sorting complete");
+}
+
+const oldColumn = showColumn;
+showColumn = function(){
+    oldColumn();
+    flashMessage("Column displayed");
+}
+
+const oldExportAll = exportAll;
+exportAll = function(){
+    oldExportAll();
+    flashMessage("All data exported");
+}
+
+const oldExportCurrent = exportCurrent;
+exportCurrent = function(){
+    oldExportCurrent();
+    flashMessage("Query result exported");
+}
+
+</script>
+
+</body>
+</html>

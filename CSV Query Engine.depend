@@ -1,0 +1,18 @@
+# depslib dependency file v1.0
+1768635937 source:c:\desktop\csv query engine project\csv q engine\main.cpp
+	<iostream>
+	<fstream>
+	<sstream>
+	<vector>
+	<string>
+	<algorithm>
+
+1771662970 source:c:\csv query engine fee328812025\csv q engine\main.cpp
+	<iostream>
+	<fstream>
+	<sstream>
+	<vector>
+	<string>
+	<algorithm>
+	<cstdlib>
+
